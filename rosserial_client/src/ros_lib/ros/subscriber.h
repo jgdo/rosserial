@@ -43,6 +43,7 @@ namespace ros {
   class Subscriber_
   {
     public:
+      virtual ~Subscriber_() {}
       virtual void callback(unsigned char *data)=0;
       virtual int getEndpointType()=0;
 
