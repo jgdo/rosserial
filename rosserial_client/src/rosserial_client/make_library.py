@@ -209,59 +209,43 @@ class ArrayDataType(PrimitiveDataType):
         self.cls = cls
 
     def make_initializer(self, f, trailer):
-        if self.size == None:
-            f.write('      %s_length(0), %s(NULL)%s\n' % (self.name, self.name, trailer))
-        else:
-            f.write('      %s()%s\n' % (self.name, trailer))
+        f.write('      %s()%s\n' % (self.name, trailer))
+        pass
 
     def make_declaration(self, f):
         if self.size == None:
-            f.write('      uint32_t %s_length;\n' % self.name)
-            f.write('      typedef %s _%s_type;\n' % (self.type, self.name))
-            f.write('      _%s_type st_%s;\n' % (self.name, self.name)) # static instance for copy
-            f.write('      _%s_type * %s;\n' % (self.name, self.name))
+            f.write('      std::vector<%s> %s;\n' % (self.type, self.name))
         else:
-            f.write('      %s %s[%d];\n' % (self.type, self.name, self.size))
+            f.write('      std::array<%s, %d> %s;\n' % (self.type, self.size, self.name))
 
     def serialize(self, f):
         c = self.cls(self.name+"[i]", self.type, self.bytes)
         if self.size == None:
             # serialize length
-            f.write('      *(outbuffer + offset + 0) = (this->%s_length >> (8 * 0)) & 0xFF;\n' % self.name)
-            f.write('      *(outbuffer + offset + 1) = (this->%s_length >> (8 * 1)) & 0xFF;\n' % self.name)
-            f.write('      *(outbuffer + offset + 2) = (this->%s_length >> (8 * 2)) & 0xFF;\n' % self.name)
-            f.write('      *(outbuffer + offset + 3) = (this->%s_length >> (8 * 3)) & 0xFF;\n' % self.name)
-            f.write('      offset += sizeof(this->%s_length);\n' % self.name)
-            f.write('      for( uint32_t i = 0; i < %s_length; i++){\n' % self.name)
-            c.serialize(f)
-            f.write('      }\n')
-        else:
-            f.write('      for( uint32_t i = 0; i < %d; i++){\n' % (self.size) )
-            c.serialize(f)
-            f.write('      }\n')
+            f.write('      *(outbuffer + offset + 0) = (this->%s.size() >> (8 * 0)) & 0xFF;\n' % self.name)
+            f.write('      *(outbuffer + offset + 1) = (this->%s.size() >> (8 * 1)) & 0xFF;\n' % self.name)
+            f.write('      *(outbuffer + offset + 2) = (this->%s.size() >> (8 * 2)) & 0xFF;\n' % self.name)
+            f.write('      *(outbuffer + offset + 3) = (this->%s.size() >> (8 * 3)) & 0xFF;\n' % self.name)
+            f.write('      offset += 4;\n')
+            
+        f.write('      for( uint32_t i = 0; i < %s.size(); i++){\n' % self.name)
+        c.serialize(f)
+        f.write('      }\n')
 
     def deserialize(self, f):
+        c = self.cls(self.name+"[i]", self.type, self.bytes)
         if self.size == None:
-            c = self.cls("st_"+self.name, self.type, self.bytes)
             # deserialize length
             f.write('      uint32_t %s_lengthT = ((uint32_t) (*(inbuffer + offset))); \n' % self.name)
             f.write('      %s_lengthT |= ((uint32_t) (*(inbuffer + offset + 1))) << (8 * 1); \n' % self.name)
             f.write('      %s_lengthT |= ((uint32_t) (*(inbuffer + offset + 2))) << (8 * 2); \n' % self.name)
             f.write('      %s_lengthT |= ((uint32_t) (*(inbuffer + offset + 3))) << (8 * 3); \n' % self.name)
-            f.write('      offset += sizeof(this->%s_length);\n' % self.name)
-            f.write('      if(%s_lengthT > %s_length)\n' % (self.name, self.name))
-            f.write('        this->%s = (%s*)realloc(this->%s, %s_lengthT * sizeof(%s));\n' % (self.name, self.type, self.name, self.name, self.type))
-            f.write('      %s_length = %s_lengthT;\n' % (self.name, self.name))
-            # copy to array
-            f.write('      for( uint32_t i = 0; i < %s_length; i++){\n' % (self.name) )
-            c.deserialize(f)
-            f.write('        memcpy( &(this->%s[i]), &(this->st_%s), sizeof(%s));\n' % (self.name, self.name, self.type))
-            f.write('      }\n')
-        else:
-            c = self.cls(self.name+"[i]", self.type, self.bytes)
-            f.write('      for( uint32_t i = 0; i < %d; i++){\n' % (self.size) )
-            c.deserialize(f)
-            f.write('      }\n')
+            f.write('      offset += 4;\n')
+            f.write('      %s.resize(%s_lengthT);\n' % (self.name, self.name))
+        # copy to array
+        f.write('      for( uint32_t i = 0; i < %s.size(); i++){\n' % (self.name) )
+        c.deserialize(f)
+        f.write('      }\n')
 
 #####################################################################
 # Messages
@@ -367,6 +351,8 @@ class Message:
         f.write('#include <stdint.h>\n')
         f.write('#include <string.h>\n')
         f.write('#include <stdlib.h>\n')
+        f.write('#include <array>\n')
+        f.write('#include <vector>\n')
         f.write('#include "ros/msg.h"\n')
 
     def _write_msg_includes(self,f):
