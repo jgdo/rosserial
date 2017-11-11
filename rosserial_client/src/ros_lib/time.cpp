@@ -33,6 +33,7 @@
  */
 
 #include "ros/time.h"
+#include "ros.h"
 
 namespace ros
 {
@@ -64,5 +65,15 @@ namespace ros
     nsec += -rhs.nsec;
     normalizeSecNSec(sec, nsec);
     return *this;
+  }
+
+  Time operator-(const Time& lhs, const Time& rhs) {
+    Time res(lhs.sec - rhs.sec, lhs.nsec - rhs.nsec);
+    normalizeSecNSec(res.sec, res.nsec);
+    return res;
+  }
+
+  Time Time::now() {
+    return nh.now();
   }
 }

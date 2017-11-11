@@ -67,6 +67,7 @@ namespace ros
       static void setNow( Time & new_now);
   };
 
+  Time operator-(const Time& lhs, const Time& rhs);
 }
 
 #endif
